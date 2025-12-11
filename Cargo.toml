@@ -1,0 +1,25 @@
+[package]
+name = "quint-trace-explorer"
+version = "0.1.0"
+edition = "2021"
+description = "Interactive CLI tool for exploring Quint/Apalache ITF traces"
+
+[dependencies]
+# JSON parsing - serde is THE serialization framework in Rust
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# ITF trace parsing - handles the complex ITF JSON format
+itf = "0.4"
+
+# TUI framework - ratatui is the modern fork of tui-rs
+ratatui = "0.29"
+
+# Terminal backend - handles raw terminal I/O
+crossterm = "0.28"
+
+# CLI argument parsing
+clap = { version = "4.0", features = ["derive"] }
+
+# Better error handling
+anyhow = "1.0"
