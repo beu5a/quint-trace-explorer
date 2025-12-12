@@ -2,7 +2,7 @@ use std::io;
 
 use anyhow::Result;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEventKind},
+    event::{self, Event, KeyCode, KeyEventKind, MouseEventKind, MouseButton, EnableMouseCapture, DisableMouseCapture},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
@@ -56,6 +56,7 @@ pub fn run(trace: Trace, auto_expand: bool) -> Result<()> {
     // Setup terminal
     enable_raw_mode()?;
     io::stdout().execute(EnterAlternateScreen)?;
+    io::stdout().execute(EnableMouseCapture)?;
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
 
     let mut app = App::new(trace, auto_expand);
@@ -86,8 +87,8 @@ pub fn run(trace: Trace, auto_expand: bool) -> Result<()> {
 
         terminal.draw(|f| render(f, &app, &tree_lines, viewport_height))?;
 
-        if let Ok(Event::Key(key)) = event::read() {
-            if key.kind == KeyEventKind::Press {
+        match event::read()? {
+            Event::Key(key) if key.kind == KeyEventKind::Press => {
                 match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
                     KeyCode::Left => {
@@ -159,10 +160,52 @@ pub fn run(trace: Trace, auto_expand: bool) -> Result<()> {
                     _ => {}
                 }
             }
+            Event::Mouse(mouse) => {
+                match mouse.kind {
+                    MouseEventKind::Down(MouseButton::Left) => {
+                        // Convert screen row to tree line index
+                        // Row 0 = header, Row 1 = blank line, Row 2+ = tree content
+                        let row = mouse.row as usize;
+                        if row >= 2 {
+                            let clicked_line = app.scroll_offset + (row - 2);
+                            if clicked_line < line_count {
+                                // Select the line
+                                app.cursor = clicked_line;
+                                // Toggle expand if expandable
+                                if let Some(line) = tree_lines.get(clicked_line) {
+                                    if line.expandable {
+                                        app.expansion.toggle(&line.path);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    MouseEventKind::ScrollUp => {
+                        // Scroll up (move view up = show earlier content)
+                        app.scroll_offset = app.scroll_offset.saturating_sub(3);
+                        // Keep cursor in view
+                        if app.cursor >= app.scroll_offset + viewport_height {
+                            app.cursor = (app.scroll_offset + viewport_height).saturating_sub(1);
+                        }
+                    }
+                    MouseEventKind::ScrollDown => {
+                        // Scroll down (move view down = show later content)
+                        let max_scroll = line_count.saturating_sub(viewport_height);
+                        app.scroll_offset = (app.scroll_offset + 3).min(max_scroll);
+                        // Keep cursor in view
+                        if app.cursor < app.scroll_offset {
+                            app.cursor = app.scroll_offset;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
         }
     }
 
     // Cleanup
+    io::stdout().execute(DisableMouseCapture)?;
     disable_raw_mode()?;
     io::stdout().execute(LeaveAlternateScreen)?;
     Ok(())
