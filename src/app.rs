@@ -85,7 +85,15 @@ pub fn run(trace: Trace, auto_expand: bool) -> Result<()> {
         // Ensure cursor is visible in viewport
         app.ensure_cursor_visible(viewport_height);
 
-        terminal.draw(|f| render(f, &app, &tree_lines, viewport_height))?;
+        let mut header_layout = HeaderLayout {
+            prev_start: 0, prev_end: 0,
+            next_start: 0, next_end: 0,
+            expand_start: 0, expand_end: 0,
+            collapse_start: 0, collapse_end: 0,
+        };
+        terminal.draw(|f| {
+            header_layout = render(f, &app, &tree_lines, viewport_height);
+        })?;
 
         match event::read()? {
             Event::Key(key) if key.kind == KeyEventKind::Press => {
@@ -163,10 +171,45 @@ pub fn run(trace: Trace, auto_expand: bool) -> Result<()> {
             Event::Mouse(mouse) => {
                 match mouse.kind {
                     MouseEventKind::Down(MouseButton::Left) => {
-                        // Convert screen row to tree line index
-                        // Row 0 = header, Row 1 = blank line, Row 2+ = tree content
                         let row = mouse.row as usize;
-                        if row >= 2 {
+                        let col = mouse.column as usize;
+
+                        if row == 0 {
+                            // Header click - check which button
+                            if col >= header_layout.prev_start && col < header_layout.prev_end {
+                                // Previous state
+                                if app.current_state > 0 {
+                                    app.current_state -= 1;
+                                    app.cursor = 0;
+                                    app.scroll_offset = 0;
+                                    if app.auto_expand {
+                                        auto_expand_changes(&mut app);
+                                    }
+                                }
+                            } else if col >= header_layout.next_start && col < header_layout.next_end {
+                                // Next state
+                                if app.current_state + 1 < app.trace.states.len() {
+                                    app.current_state += 1;
+                                    app.cursor = 0;
+                                    app.scroll_offset = 0;
+                                    if app.auto_expand {
+                                        auto_expand_changes(&mut app);
+                                    }
+                                }
+                            } else if col >= header_layout.expand_start && col < header_layout.expand_end {
+                                // Expand all
+                                let expandable_paths: Vec<_> = tree_lines
+                                    .iter()
+                                    .filter(|l| l.expandable)
+                                    .map(|l| l.path.clone())
+                                    .collect();
+                                app.expansion.expand_all(&expandable_paths);
+                            } else if col >= header_layout.collapse_start && col < header_layout.collapse_end {
+                                // Collapse all
+                                app.expansion.clear();
+                            }
+                        } else if row >= 2 {
+                            // Tree content click
                             let clicked_line = app.scroll_offset + (row - 2);
                             if clicked_line < line_count {
                                 // Select the line
@@ -247,14 +290,30 @@ fn build_tree_lines(app: &App, diff: &DiffResult, terminal_width: usize) -> Vec<
     tree_lines
 }
 
-fn render(frame: &mut Frame, app: &App, tree_lines: &[TreeLine], viewport_height: usize) {
+/// Clickable regions in the header
+struct HeaderLayout {
+    prev_start: usize,
+    prev_end: usize,
+    next_start: usize,
+    next_end: usize,
+    expand_start: usize,
+    expand_end: usize,
+    collapse_start: usize,
+    collapse_end: usize,
+}
+
+fn render(frame: &mut Frame, app: &App, tree_lines: &[TreeLine], viewport_height: usize) -> HeaderLayout {
     use ratatui::style::{Color, Modifier, Style};
     use ratatui::text::{Line, Span};
 
-    let auto_indicator = if app.auto_expand { " [auto-expand]" } else { "" };
     let header_style = Style::default()
         .bg(Color::Indexed(56))  // Pastel purple
         .fg(Color::White)
+        .add_modifier(Modifier::BOLD);
+
+    let button_style = Style::default()
+        .bg(Color::Indexed(56))
+        .fg(Color::Yellow)
         .add_modifier(Modifier::BOLD);
 
     // Build scroll indicator
@@ -265,15 +324,57 @@ fn render(frame: &mut Frame, app: &App, tree_lines: &[TreeLine], viewport_height
         String::new()
     };
 
-    // Build header with padding to fill width
-    let header_text = format!(
-        " State {}/{}{}{} | ←/→ state | ↑/↓/PgUp/PgDn cursor | Enter toggle | e/c expand/collapse | q quit ",
-        app.current_state + 1,
-        app.trace.states.len(),
-        auto_indicator,
-        scroll_info
-    );
-    let header = Line::from(Span::styled(header_text, header_style));
+    let auto_indicator = if app.auto_expand { " [auto]" } else { "" };
+
+    // Build header with clickable buttons - track positions
+    // Format: " [◀] State 1/10 [▶] | [+] [-] | q quit "
+    let mut pos = 0;
+
+    let space1 = " ";
+    pos += space1.len();
+
+    let prev_start = pos;
+    let prev_btn = "[◀]";
+    pos += prev_btn.chars().count();  // Unicode chars
+    let prev_end = pos;
+
+    let state_text = format!(" State {}/{}{}{} ", app.current_state + 1, app.trace.states.len(), auto_indicator, scroll_info);
+    pos += state_text.len();
+
+    let next_start = pos;
+    let next_btn = "[▶]";
+    pos += next_btn.chars().count();
+    let next_end = pos;
+
+    let sep1 = " | ";
+    pos += sep1.len();
+
+    let expand_start = pos;
+    let expand_btn = "[+all]";
+    pos += expand_btn.len();
+    let expand_end = pos;
+
+    let space2 = " ";
+    pos += space2.len();
+
+    let collapse_start = pos;
+    let collapse_btn = "[-all]";
+    pos += collapse_btn.len();
+    let collapse_end = pos;
+
+    let suffix = " | q quit ";
+
+    let header = Line::from(vec![
+        Span::styled(space1, header_style),
+        Span::styled(prev_btn, button_style),
+        Span::styled(&state_text, header_style),
+        Span::styled(next_btn, button_style),
+        Span::styled(sep1, header_style),
+        Span::styled(expand_btn, button_style),
+        Span::styled(space2, header_style),
+        Span::styled(collapse_btn, button_style),
+        Span::styled(suffix, header_style),
+    ]);
 
     let mut lines: Vec<Line> = vec![header, Line::from("")];
 
@@ -321,4 +422,15 @@ fn render(frame: &mut Frame, app: &App, tree_lines: &[TreeLine], viewport_height
 
     let paragraph = ratatui::widgets::Paragraph::new(lines);
     frame.render_widget(paragraph, frame.area());
+
+    HeaderLayout {
+        prev_start,
+        prev_end,
+        next_start,
+        next_end,
+        expand_start,
+        expand_end,
+        collapse_start,
+        collapse_end,
+    }
 }
