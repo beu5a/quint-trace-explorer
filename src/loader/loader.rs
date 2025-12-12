@@ -7,14 +7,18 @@ use serde::Deserialize;
 
 /// A parsed ITF trace using itf::Value for state values
 pub struct Trace {
+    #[allow(dead_code)] // Part of ITF format, may be useful in future
     pub meta: itf::trace::Meta,
+    #[allow(dead_code)] // Part of ITF format, may be useful in future
     pub vars: Vec<String>,
     pub states: Vec<State>,
+    #[allow(dead_code)] // Part of ITF format, may be useful in future
     pub loop_index: Option<u64>,
 }
 
 /// A single state in the trace
 pub struct State {
+    #[allow(dead_code)] // Part of ITF format, may be useful in future
     pub index: u64,
     pub values: HashMap<String, itf::Value>,
 }

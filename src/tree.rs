@@ -94,7 +94,6 @@ impl ExpansionState {
 #[derive(Clone)]
 pub struct TreeLine {
     pub path: NodePath,
-    pub text: String,
     pub expandable: bool,
     pub diff: DiffKind,
     pub spans: Vec<StyledSpan>,
@@ -111,9 +110,12 @@ pub struct StyledSpan {
 #[derive(Clone, Copy)]
 pub enum SpanStyle {
     Default,
-    String,   // Cyan
-    Number,   // Magenta
-    Boolean,  // Blue
+    #[allow(dead_code)] // Future: syntax highlighting for strings
+    String,
+    #[allow(dead_code)] // Future: syntax highlighting for numbers
+    Number,
+    #[allow(dead_code)] // Future: syntax highlighting for booleans
+    Boolean,
 }
 
 impl SpanStyle {
@@ -137,14 +139,17 @@ impl StyledSpan {
         Self::new(text, SpanStyle::Default)
     }
 
+    #[allow(dead_code)] // Future: syntax highlighting
     fn string(text: impl Into<String>) -> Self {
         Self::new(text, SpanStyle::String)
     }
 
+    #[allow(dead_code)] // Future: syntax highlighting
     fn number(text: impl Into<String>) -> Self {
         Self::new(text, SpanStyle::Number)
     }
 
+    #[allow(dead_code)] // Future: syntax highlighting
     fn boolean(text: impl Into<String>) -> Self {
         Self::new(text, SpanStyle::Boolean)
     }
@@ -153,8 +158,8 @@ impl StyledSpan {
 impl TreeLine {
     /// Create a TreeLine with default (unstyled) spans from text
     fn with_default_spans(path: NodePath, text: String, expandable: bool, diff: DiffKind) -> Self {
-        let spans = vec![StyledSpan::default(text.clone())];
-        Self { path, text, expandable, diff, spans }
+        let spans = vec![StyledSpan::default(text)];
+        Self { path, expandable, diff, spans }
     }
 }
 

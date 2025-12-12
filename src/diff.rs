@@ -21,10 +21,6 @@ impl DiffResult {
         self.changes.get(path).copied().unwrap_or(DiffKind::Unchanged)
     }
 
-    /// Check if any descendant of this path has changes
-    pub fn has_nested_changes(&self, path: &NodePath) -> bool {
-        self.changes.keys().any(|p| p.starts_with(path) && p != path)
-    }
 }
 
 /// Compare two states and return what changed
