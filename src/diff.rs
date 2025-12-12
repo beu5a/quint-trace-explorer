@@ -33,17 +33,14 @@ pub fn compute_diff(
     let prev_keys: HashSet<_> = prev.keys().collect();
     let curr_keys: HashSet<_> = curr.keys().collect();
 
-    // Check for removed variables
     for key in prev_keys.difference(&curr_keys) {
         changes.insert(vec![(*key).clone()], DiffKind::Removed);
     }
 
-    // Check for added variables
     for key in curr_keys.difference(&prev_keys) {
         changes.insert(vec![(*key).clone()], DiffKind::Added);
     }
 
-    // Check for modified variables
     for key in prev_keys.intersection(&curr_keys) {
         let path = vec![(*key).clone()];
         diff_value(&prev[*key], &curr[*key], path, &mut changes);
@@ -63,7 +60,6 @@ fn diff_value(
         return;
     }
 
-    // Values are different - check if we can diff structurally
     match (prev, curr) {
         (itf::Value::Record(prev_fields), itf::Value::Record(curr_fields)) => {
             changes.insert(path.clone(), DiffKind::Modified);
@@ -78,7 +74,6 @@ fn diff_value(
             diff_set(prev_items, curr_items, path, changes);
         }
         _ => {
-            // Atomic change
             changes.insert(path, DiffKind::Modified);
         }
     }
@@ -120,33 +115,24 @@ fn diff_map(
     path: NodePath,
     changes: &mut HashMap<NodePath, DiffKind>,
 ) {
-    // For maps, we compare by key (not index) since we render curr
     let prev_map: HashMap<_, _> = prev.iter().collect();
     let curr_vec: Vec<_> = curr.iter().collect();
 
-    // For each entry in curr, check if it existed in prev with same value
     for (i, (curr_key, curr_val)) in curr_vec.iter().enumerate() {
         let mut child_path = path.clone();
         child_path.push(format!("{}", i));
 
         match prev_map.get(curr_key) {
             Some(prev_val) => {
-                // Key existed in prev - check if value changed
                 if *prev_val != *curr_val {
-                    // Value changed - recursively diff
                     diff_value(*prev_val, *curr_val, child_path, changes);
                 }
-                // If value is same, it's unchanged (no need to mark)
             }
             None => {
-                // New key - mark as Added
                 changes.insert(child_path, DiffKind::Added);
             }
         }
     }
-
-    // Note: Removed entries are not rendered (we render curr state)
-    // The parent map is already marked as Modified if anything changed
 }
 
 fn diff_set(
@@ -155,27 +141,16 @@ fn diff_set(
     path: NodePath,
     changes: &mut HashMap<NodePath, DiffKind>,
 ) {
-    // Compare sets by value, not index
-    // We render the CURRENT set, so we need to mark items in curr as Added/Unchanged
-    // Removed items won't be visible (they're not in curr)
-
     let prev_vec: Vec<_> = prev.iter().collect();
     let curr_vec: Vec<_> = curr.iter().collect();
 
-    // For each element in curr, check if it existed in prev
     for (i, curr_item) in curr_vec.iter().enumerate() {
         let mut child_path = path.clone();
         child_path.push(format!("{}", i));
 
         let exists_in_prev = prev_vec.iter().any(|p| p == curr_item);
         if !exists_in_prev {
-            // New item - mark as Added
             changes.insert(child_path, DiffKind::Added);
         }
-        // If it exists in prev, it's unchanged (no need to mark)
     }
-
-    // Note: We don't mark removed items because they're not rendered
-    // (we render curr state, not prev state)
-    // The parent set is already marked as Modified if anything changed
 }

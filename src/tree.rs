@@ -110,16 +110,15 @@ pub struct StyledSpan {
 #[derive(Clone, Copy)]
 pub enum SpanStyle {
     Default,
-    #[allow(dead_code)] // Future: syntax highlighting for strings
+    #[allow(dead_code)]
     String,
-    #[allow(dead_code)] // Future: syntax highlighting for numbers
+    #[allow(dead_code)]
     Number,
-    #[allow(dead_code)] // Future: syntax highlighting for booleans
+    #[allow(dead_code)]
     Boolean,
 }
 
 impl SpanStyle {
-    /// Convert to ratatui Style (base color, will be combined with diff color in app.rs)
     pub fn to_color(&self) -> Option<Color> {
         match self {
             SpanStyle::Default => None,
@@ -139,17 +138,17 @@ impl StyledSpan {
         Self::new(text, SpanStyle::Default)
     }
 
-    #[allow(dead_code)] // Future: syntax highlighting
+    #[allow(dead_code)]
     fn string(text: impl Into<String>) -> Self {
         Self::new(text, SpanStyle::String)
     }
 
-    #[allow(dead_code)] // Future: syntax highlighting
+    #[allow(dead_code)]
     fn number(text: impl Into<String>) -> Self {
         Self::new(text, SpanStyle::Number)
     }
 
-    #[allow(dead_code)] // Future: syntax highlighting
+    #[allow(dead_code)]
     fn boolean(text: impl Into<String>) -> Self {
         Self::new(text, SpanStyle::Boolean)
     }

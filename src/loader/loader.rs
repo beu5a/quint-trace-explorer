@@ -7,18 +7,18 @@ use serde::Deserialize;
 
 /// A parsed ITF trace using itf::Value for state values
 pub struct Trace {
-    #[allow(dead_code)] // Part of ITF format, may be useful in future
+    #[allow(dead_code)]
     pub meta: itf::trace::Meta,
-    #[allow(dead_code)] // Part of ITF format, may be useful in future
+    #[allow(dead_code)]
     pub vars: Vec<String>,
     pub states: Vec<State>,
-    #[allow(dead_code)] // Part of ITF format, may be useful in future
+    #[allow(dead_code)]
     pub loop_index: Option<u64>,
 }
 
 /// A single state in the trace
 pub struct State {
-    #[allow(dead_code)] // Part of ITF format, may be useful in future
+    #[allow(dead_code)]
     pub index: u64,
     pub values: HashMap<String, itf::Value>,
 }
@@ -41,11 +41,9 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
     let contents = fs::read_to_string(path)
         .context(format!("Failed to read file: {}", path.display()))?;
 
-    // Step 1: Parse the trace structure (avoids the flatten + untagged issue)
     let raw: RawTrace = serde_json::from_str(&contents)
         .context("Failed to parse ITF JSON structure")?;
 
-    // Step 2: Convert each state's variable values to itf::Value
     let states: Vec<State> = raw
         .states
         .into_iter()
@@ -67,12 +65,10 @@ fn parse_state(index: usize, json: serde_json::Value) -> Result<State> {
 
     if let Some(obj) = json.as_object() {
         for (key, val) in obj {
-            // Skip #meta - it's metadata, not a variable
             if key == "#meta" {
                 continue;
             }
 
-            // Convert each variable's value to itf::Value
             let itf_value: itf::Value = serde_json::from_value(val.clone())
                 .context(format!("Failed to parse variable '{}' in state {}", key, index))?;
 
@@ -86,13 +82,6 @@ fn parse_state(index: usize, json: serde_json::Value) -> Result<State> {
     })
 }
 
-// ============================================================================
-// RUST CONCEPT: Tests module
-//
-// #[cfg(test)] means this module only compiles when running `cargo test`
-// #[test] marks individual test functions
-// assert! and assert_eq! are macros for checking conditions
-// ============================================================================
 #[cfg(test)]
 mod tests {
     use super::*;
