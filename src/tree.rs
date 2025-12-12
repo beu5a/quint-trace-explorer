@@ -329,7 +329,7 @@ pub fn render_value(
             let count = items.iter().count();
             let all_simple = all_simple(items.iter());
             let inline = if all_simple {
-                format_collection_inline(items.iter(), "{", "}", thresholds.inline)
+                format_collection_inline(items.iter(), "{ ", " }", thresholds.inline)
             } else {
                 None
             };
@@ -512,11 +512,11 @@ fn detect_sum_type(fields: &itf::value::Record) -> Option<(&str, &itf::Value)> {
 /// Format a preview of a record showing first few fields
 fn format_record_preview(fields: &itf::value::Record, max_len: usize) -> String {
     if fields.is_empty() {
-        return "{}".to_string();
+        return "{ }".to_string();
     }
 
     let mut parts = Vec::new();
-    let mut total_len = 2; // for "{" and "}"
+    let mut total_len = 4; // for "{ " and " }"
 
     for (key, val) in fields.iter() {
         let val_short = format_value_short(val);
@@ -532,7 +532,7 @@ fn format_record_preview(fields: &itf::value::Record, max_len: usize) -> String 
         parts.push(part);
     }
 
-    format!("{{{}}}", parts.join(", "))
+    format!("{{ {} }}", parts.join(", "))
 }
 
 /// Short format for map keys
@@ -542,9 +542,9 @@ fn format_value_short(value: &itf::Value) -> String {
         itf::Value::Number(n) => n.to_string(),
         itf::Value::String(s) => format!("\"{}\"", s),
         itf::Value::BigInt(n) => n.to_string(),
-        itf::Value::Record(_) => "{...}".to_string(),
+        itf::Value::Record(_) => "{ ... }".to_string(),
         itf::Value::Map(_) => "Map(...)".to_string(),
-        itf::Value::Set(_) => "{...}".to_string(),
+        itf::Value::Set(_) => "{ ... }".to_string(),
         itf::Value::List(_) => "[...]".to_string(),
         itf::Value::Tuple(_) => "(...)".to_string(),
         itf::Value::Unserializable(_) => "<?>".to_string(),
@@ -571,7 +571,7 @@ fn format_value_full(value: &itf::Value, max_len: usize) -> Option<String> {
         itf::Value::BigInt(n) => n.to_string(),
         itf::Value::Record(fields) => {
             if fields.is_empty() {
-                "{}".to_string()
+                "{ }".to_string()
             } else {
                 let parts: Vec<String> = fields
                     .iter()
@@ -582,7 +582,7 @@ fn format_value_full(value: &itf::Value, max_len: usize) -> Option<String> {
                 if parts.len() != fields.len() {
                     return None; // Some field couldn't be formatted
                 }
-                format!("{{{}}}", parts.join(", "))
+                format!("{{ {} }}", parts.join(", "))
             }
         }
         itf::Value::Set(items) => {
@@ -593,7 +593,7 @@ fn format_value_full(value: &itf::Value, max_len: usize) -> Option<String> {
             if parts.len() != items.iter().count() {
                 return None;
             }
-            format!("{{{}}}", parts.join(", "))
+            format!("{{ {} }}", parts.join(", "))
         }
         itf::Value::List(items) => {
             let parts: Vec<String> = items
